@@ -12,11 +12,6 @@
     "test": "pnpm exec vitest run",
     "typecheck": "pnpm exec tsc -p tsconfig.lib.json --noEmit",
     "upgrade-packages": "pnpm up --latest",
-    "compass:annotate": "code-compass annotate --root .",
-    "compass:migrate": "code-compass migrate --root .",
-    "compass:inventory": "code-compass inventory --root .",
-    "compass:validate": "code-compass validate --root .",
-    "compass": "code-compass validate --root .",
     "changelog": "changelog-live",
     "changelog:init": "changelog-live init"
   },
@@ -50,7 +45,6 @@
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
-    "@syrokomskyi/code-compass": "workspace:*",
     "@wgogol/changelog-live": "workspace:*",
     "eslint": "~10.7.0",
     "typescript": "7.0.2",
