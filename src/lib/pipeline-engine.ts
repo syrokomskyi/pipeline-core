@@ -3,6 +3,7 @@
 <purpose>Executes a declared pipeline of steps with dry-run, range selection, reuse, retry, and guide artifact support.</purpose>
 <non-goals>
   <item>Does not implement selection logic, prompt checks, or guide rendering directly (see pipeline-engine-helpers.ts).</item>
+  <item>Does not implement the retry/pause state machine for individual steps (see step-runner.ts).</item>
   <item>Does not define pipeline types or error classes.</item>
 </non-goals>
 </MODULE_CONTRACT>
@@ -10,6 +11,7 @@
   <item>Extracted internal helpers into pipeline-engine-helpers.ts to keep the engine file under 600 lines.</item>
   <item>Added optional onEvent callback to emit key pipeline events (started, step_started, step_completed, step_failed, step_skipped, pipeline_completed, pipeline_paused).</item>
   <item>Enriched pipeline_paused events with pauseType, message, declarationText, availableArtifacts, and requiredFiles via buildPauseContext helper.</item>
+  <item>Extracted retry/pause state machine into step-runner.ts (runStepWithRetry) and phase-advance logic into advancePhasesAfterStep.</item>
 </CHANGE_SUMMARY>
 */
 
@@ -32,10 +34,7 @@ import type {
   PipelineArtifacts,
 } from "./pipeline-types.js";
 import {
-  appendJsonLine,
   assertStepPromptTemplateReady,
-  backupInvalidOutputArtifact,
-  buildPauseContext,
   buildSelectedStepIdSet,
   classifyArtifactValidationError,
   completePhaseIfNeeded,
@@ -44,6 +43,7 @@ import {
   writeGuideArtifacts,
   writeStepGuideArtifact,
 } from "./pipeline-engine-helpers.js";
+import { advancePhasesAfterStep, runStepWithRetry } from "./step-runner.js";
 
 export const runPipelineEngine = async <
   TState,
@@ -212,17 +212,11 @@ export const runPipelineEngine = async <
       });
       await step.hydrateFromArtifacts?.(ctx);
       await completePhaseIfNeeded({ ctx, guide: options.guide, selectedStepIds, stepId: step.id });
-      currentPhaseIds = currentPhaseIds.filter((phaseId) => {
-        const phase = options.guide?.phases.find((candidate) => candidate.id === phaseId);
-        if (!phase) {
-          return false;
-        }
-
-        const lastSelectedStepId = phase.stepIds
-          .filter((candidateStepId) => selectedStepIds.has(candidateStepId))
-          .at(-1);
-
-        return lastSelectedStepId !== step.id;
+      currentPhaseIds = advancePhasesAfterStep({
+        guide: options.guide,
+        stepId: step.id,
+        selectedStepIds,
+        currentPhaseIds,
       });
       continue;
     }
@@ -254,17 +248,11 @@ export const runPipelineEngine = async <
         },
       });
       await completePhaseIfNeeded({ ctx, guide: options.guide, selectedStepIds, stepId: step.id });
-      currentPhaseIds = currentPhaseIds.filter((phaseId) => {
-        const phase = options.guide?.phases.find((candidate) => candidate.id === phaseId);
-        if (!phase) {
-          return false;
-        }
-
-        const lastSelectedStepId = phase.stepIds
-          .filter((candidateStepId) => selectedStepIds.has(candidateStepId))
-          .at(-1);
-
-        return lastSelectedStepId !== step.id;
+      currentPhaseIds = advancePhasesAfterStep({
+        guide: options.guide,
+        stepId: step.id,
+        selectedStepIds,
+        currentPhaseIds,
       });
       continue;
     }
@@ -334,324 +322,22 @@ export const runPipelineEngine = async <
       guide: options.guide,
     });
 
-    emit?.({
-      type: "step_started",
-      stepId: step.id,
-      stepNumber: ctx.getStepNumber(step.id),
-      title: stepGuideTitle(step.id),
+    await runStepWithRetry({
+      step,
+      ctx,
+      emit,
+      stepGuideTitle,
+      assertAllArtifactsValid,
+      stepGuidesById,
+      stepArtifactsById,
     });
 
-    try {
-      await appendJsonLine(ctx.getOutputPath(step.id, "log.txt"), {
-        timestamp: new Date().toISOString(),
-        event: "step_started",
-        stepId: step.id,
-        stepNumber: ctx.getStepNumber(step.id),
-        status: "started",
-      });
-    } catch (error) {
-      console.error(`Failed to write log.txt for ${step.id}:`, error);
-    }
-
-    const runOnce = async (attempt: 1 | 2) => {
-      await ctx.logStepEvent({
-        event: "step_run_started",
-        stepId: step.id,
-        attempt,
-        status: "running",
-      });
-      console.log(
-        `${attempt === 2 ? "retry:" : "run:"} ${step.id}${attempt === 2 ? " (attempt 2)" : ""} running...`,
-      );
-      await step.run(ctx);
-      await ctx.logStepEvent({
-        event: "step_run_finished",
-        stepId: step.id,
-        attempt,
-        status: "completed",
-      });
-      await ctx.logStepEvent({
-        event: "step_validation_started",
-        stepId: step.id,
-        attempt,
-        status: "running",
-      });
-      await assertAllArtifactsValid(step.id);
-      await ctx.logStepEvent({
-        event: "step_validation_finished",
-        stepId: step.id,
-        attempt,
-        status: "completed",
-      });
-      console.log(`ok: ${step.id} output validated.`);
-    };
-
-    try {
-      await runOnce(1);
-      emit?.({
-        type: "step_completed",
-        stepId: step.id,
-        stepNumber: ctx.getStepNumber(step.id),
-      });
-    } catch (error) {
-      emit?.({
-        type: "step_failed",
-        stepId: step.id,
-        stepNumber: ctx.getStepNumber(step.id),
-        error: getErrorMessage(error),
-      });
-      await ctx.logStepEvent({
-        event: "step_run_failed",
-        stepId: step.id,
-        attempt: 1,
-        status: "failed",
-        details: {
-          error: getErrorMessage(error),
-        },
-      });
-      if (error instanceof PipelinePauseError) {
-        const pauseReason = getErrorMessage(error);
-        const pauseContext = await buildPauseContext({
-          stepId: step.id,
-          reason: pauseReason,
-          stepGuidesById,
-          stepArtifactsById,
-          ctx,
-        });
-        emit?.({
-          type: "pipeline_paused",
-          reason: pauseReason,
-          stepId: step.id,
-          ...pauseContext,
-        });
-        throw error;
-      }
-
-      const artifactError = await classifyArtifactValidationError({
-        assertAllArtifactsValid,
-        error,
-        stepId: step.id,
-      });
-
-      if (!artifactError) {
-        throw error;
-      }
-
-      if (artifactError.ownerStepId !== step.id) {
-        await ctx.logStepEvent({
-          event: "step_paused",
-          stepId: step.id,
-          attempt: 1,
-          status: "paused",
-          artifactId: artifactError.artifactId,
-          details: {
-            ownerStepId: artifactError.ownerStepId,
-            reason: "invalid_upstream_artifact",
-          },
-        });
-        const upstreamReason = `Invalid upstream artifact: ${artifactError.ownerStepId}:${artifactError.artifactId}`;
-        const pauseContext = await buildPauseContext({
-          stepId: step.id,
-          reason: upstreamReason,
-          stepGuidesById,
-          stepArtifactsById,
-          ctx,
-        });
-        emit?.({
-          type: "pipeline_paused",
-          reason: upstreamReason,
-          stepId: step.id,
-          ...pauseContext,
-        });
-        throw new PipelinePauseError(
-          [
-            `Pipeline paused by ${step.id}.`,
-            "Invalid input artifact produced by another step.",
-            "The pipeline operator should review the step guide above, fix the upstream artifact, and rerun.",
-            `Upstream: ${artifactError.ownerStepId}:${artifactError.artifactId}`,
-            artifactError.message,
-            "Fix the upstream output and rerun.",
-          ].join("\n"),
-        );
-      }
-
-      if (step.retryPolicy === "none") {
-        await ctx.logStepEvent({
-          event: "step_paused",
-          stepId: step.id,
-          attempt: 1,
-          status: "paused",
-          artifactId: artifactError.artifactId,
-          details: {
-            reason: "output_validation_failed_without_retry",
-          },
-        });
-        const noRetryReason = `Output validation failed without retry: ${artifactError.message}`;
-        const pauseContextNoRetry = await buildPauseContext({
-          stepId: step.id,
-          reason: noRetryReason,
-          stepGuidesById,
-          stepArtifactsById,
-          ctx,
-        });
-        emit?.({
-          type: "pipeline_paused",
-          reason: noRetryReason,
-          stepId: step.id,
-          ...pauseContextNoRetry,
-        });
-        throw new PipelinePauseError(
-          [
-            `Pipeline paused by ${step.id}.`,
-            "Output validation failed.",
-            artifactError.message,
-            "This step does not support automatic retry.",
-          ].join("\n"),
-        );
-      }
-
-      console.error(`warn: ${step.id} output validation failed. Retrying once...`);
-      await ctx.logStepEvent({
-        event: "step_retry_scheduled",
-        stepId: step.id,
-        attempt: 2,
-        status: "scheduled",
-        artifactId: artifactError.artifactId,
-        details: {
-          reason: "output_validation_failed",
-        },
-      });
-      await backupInvalidOutputArtifact({
-        ctx,
-        attempt: 1,
-        artifactId: artifactError.artifactId,
-        stepId: step.id,
-      });
-      await ctx.logStepEvent({
-        event: "artifact_backed_up",
-        stepId: step.id,
-        attempt: 1,
-        status: "completed",
-        artifactId: artifactError.artifactId,
-        details: {
-          backupSuffix: ".invalid-1",
-        },
-      });
-
-      try {
-        await runOnce(2);
-        emit?.({
-          type: "step_completed",
-          stepId: step.id,
-          stepNumber: ctx.getStepNumber(step.id),
-        });
-      } catch (error2) {
-        emit?.({
-          type: "step_failed",
-          stepId: step.id,
-          stepNumber: ctx.getStepNumber(step.id),
-          error: getErrorMessage(error2),
-        });
-        await ctx.logStepEvent({
-          event: "step_run_failed",
-          stepId: step.id,
-          attempt: 2,
-          status: "failed",
-          details: {
-            error: getErrorMessage(error2),
-          },
-        });
-        if (error2 instanceof PipelinePauseError) {
-          const pauseReason2 = getErrorMessage(error2);
-          const pauseContext2 = await buildPauseContext({
-            stepId: step.id,
-            reason: pauseReason2,
-            stepGuidesById,
-            stepArtifactsById,
-            ctx,
-          });
-          emit?.({
-            type: "pipeline_paused",
-            reason: pauseReason2,
-            stepId: step.id,
-            ...pauseContext2,
-          });
-          throw error2;
-        }
-
-        const artifactError2 = await classifyArtifactValidationError({
-          assertAllArtifactsValid,
-          error: error2,
-          stepId: step.id,
-        });
-
-        if (artifactError2 && artifactError2.ownerStepId === step.id) {
-          await backupInvalidOutputArtifact({
-            ctx,
-            attempt: 2,
-            artifactId: artifactError2.artifactId,
-            stepId: step.id,
-          });
-          await ctx.logStepEvent({
-            event: "artifact_backed_up",
-            stepId: step.id,
-            attempt: 2,
-            status: "completed",
-            artifactId: artifactError2.artifactId,
-            details: {
-              backupSuffix: ".invalid-2",
-            },
-          });
-          await ctx.logStepEvent({
-            event: "step_paused",
-            stepId: step.id,
-            attempt: 2,
-            status: "paused",
-            artifactId: artifactError2.artifactId,
-            details: {
-              reason: "output_validation_failed_twice",
-            },
-          });
-          const failedTwiceReason = `Output validation failed twice: ${artifactError2.message}`;
-          const pauseContextFailedTwice = await buildPauseContext({
-            stepId: step.id,
-            reason: failedTwiceReason,
-            stepGuidesById,
-            stepArtifactsById,
-            ctx,
-          });
-          emit?.({
-            type: "pipeline_paused",
-            reason: failedTwiceReason,
-            stepId: step.id,
-            ...pauseContextFailedTwice,
-          });
-          throw new PipelinePauseError(
-            [
-              `Pipeline paused by ${step.id}.`,
-              "Output validation failed twice.",
-              artifactError2.message,
-              "Check the *.invalid-1 / *.invalid-2 backups in this step output directory and rerun.",
-            ].join("\n"),
-          );
-        }
-
-        throw error2;
-      }
-    }
-
     await completePhaseIfNeeded({ ctx, guide: options.guide, selectedStepIds, stepId: step.id });
-    currentPhaseIds = currentPhaseIds.filter((phaseId) => {
-      const phase = options.guide?.phases.find((candidate) => candidate.id === phaseId);
-      if (!phase) {
-        return false;
-      }
-
-      const lastSelectedStepId = phase.stepIds
-        .filter((candidateStepId) => selectedStepIds.has(candidateStepId))
-        .at(-1);
-
-      return lastSelectedStepId !== step.id;
+    currentPhaseIds = advancePhasesAfterStep({
+      guide: options.guide,
+      stepId: step.id,
+      selectedStepIds,
+      currentPhaseIds,
     });
   }
 
