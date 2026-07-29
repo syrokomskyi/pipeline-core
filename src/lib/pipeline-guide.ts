@@ -17,6 +17,7 @@ import type {
   PipelinePhaseLike,
   PipelineExecutionGuide,
   PipelinePhaseGuide,
+  PipelineStepAiModelUsage,
   PipelineStepDecisionType,
   PipelineStepGuide,
   PipelineStepGuideSeed,
@@ -223,6 +224,7 @@ const resolvePipelineStepGuide = <TStep extends PipelineStepLike>(
         : "Pipeline complete"),
     notes: seed.notes,
     phaseId: context.getPhaseForStep(step.id)?.id,
+    aiModelUsage: seed.aiModelUsage,
   };
 };
 
@@ -292,12 +294,54 @@ export const findPipelinePhaseByStepId = (
   );
 };
 
+const renderAiModelUsageSummaryTable = (options: {
+  stepNumbers: Map<string, number>;
+  stepGuidesById: Map<string, PipelineStepGuide | undefined>;
+}): string[] => {
+  const rows: string[] = [];
+  const sortedStepIds = [...options.stepNumbers.entries()]
+    .sort(([, a], [, b]) => a - b)
+    .map(([stepId]) => stepId);
+
+  for (const stepId of sortedStepIds) {
+    const stepNumber = options.stepNumbers.get(stepId);
+    const stepGuide = options.stepGuidesById.get(stepId);
+    if (
+      stepNumber === undefined ||
+      !stepGuide?.aiModelUsage ||
+      stepGuide.aiModelUsage.length === 0
+    ) {
+      continue;
+    }
+
+    for (const usage of stepGuide.aiModelUsage) {
+      const stepLabel = `${stepNumber}. ${stepGuide.title}`;
+      const maxTokens = usage.maxTokens !== undefined ? String(usage.maxTokens) : "—";
+      rows.push(`| ${stepLabel} | \`${usage.modelSource}\` | ${maxTokens} | ${usage.purpose} |`);
+    }
+  }
+
+  if (rows.length === 0) {
+    return [];
+  }
+
+  return [
+    "## AI Model Usage Summary",
+    "",
+    "| Step | Model | Max Tokens | Purpose |",
+    "|------|-------|-----------|---------|",
+    ...rows,
+    "",
+  ];
+};
+
 export const renderPipelineExecutionGuideMarkdown = (options: {
   guide: PipelineExecutionGuide;
   stepNumbers: Map<string, number>;
   stepGuidesById: Map<string, PipelineStepGuide | undefined>;
 }): string => {
   const phaseLines = renderPipelineRouteLines(options);
+  const aiUsageLines = renderAiModelUsageSummaryTable(options);
 
   return trimTrailingEmptyLines([
     `# ${options.guide.title}`,
@@ -309,6 +353,7 @@ export const renderPipelineExecutionGuideMarkdown = (options: {
     "## Route",
     "",
     ...phaseLines,
+    ...aiUsageLines,
   ]);
 };
 
@@ -335,6 +380,26 @@ export const renderPipelinePhaseGuideMarkdown = (options: {
   ]);
 };
 
+const renderAiModelUsageSection = (usages: PipelineStepAiModelUsage[]): string[] => {
+  if (usages.length === 0) {
+    return [];
+  }
+
+  const rows = usages.map((usage) => {
+    const maxTokens = usage.maxTokens !== undefined ? String(usage.maxTokens) : "—";
+    return `| \`${usage.modelSource}\` | ${maxTokens} | ${usage.purpose} |`;
+  });
+
+  return [
+    "## AI Model Usage",
+    "",
+    "| Model | Max Tokens | Purpose |",
+    "|-------|-----------|---------|",
+    ...rows,
+    "",
+  ];
+};
+
 export const renderPipelineStepGuideMarkdown = (options: {
   stepId: string;
   stepNumber: number;
@@ -355,6 +420,7 @@ export const renderPipelineStepGuideMarkdown = (options: {
     ...createSection("Inputs", options.guide.inputs),
     ...createSection("Outputs", options.guide.outputs),
     ...createSection("Definition of Done", options.guide.definitionOfDone),
+    ...renderAiModelUsageSection(options.guide.aiModelUsage ?? []),
     ...createSection("Notes", options.guide.notes ?? []),
     ...createSection("Next step", options.guide.nextStep ? [options.guide.nextStep] : []),
   ]);

@@ -19,11 +19,13 @@ export type PipelineRetryPolicy = "none" | "on_output_invalid";
 export type PipelineReusePolicy = "reuse_valid_artifacts" | "always_run";
 
 export type PipelineStepDecisionType =
-  | "auto"
-  | "human_confirms"
-  | "human_provides_content"
-  | "human_reviews"
-  | "client_chooses";
+  "auto" | "human_confirms" | "human_provides_content" | "human_reviews" | "client_chooses";
+
+export type PipelineStepAiModelUsage = {
+  modelSource: string;
+  maxTokens?: number;
+  purpose: string;
+};
 
 export type PipelineStepGuideSeed = {
   title: string;
@@ -34,6 +36,7 @@ export type PipelineStepGuideSeed = {
   decisionType?: PipelineStepDecisionType;
   nextStep?: string;
   notes?: string[];
+  aiModelUsage?: PipelineStepAiModelUsage[];
 };
 
 export type PipelineStepGuide = {
@@ -46,6 +49,7 @@ export type PipelineStepGuide = {
   nextStep?: string;
   notes?: string[];
   phaseId?: string;
+  aiModelUsage?: PipelineStepAiModelUsage[];
 };
 
 export type PipelinePhaseGuideSeed = {

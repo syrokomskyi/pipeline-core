@@ -6,6 +6,7 @@ import {
   formatPipelineStepDecisionType,
   renderPipelineStepGuideMarkdown,
   renderPipelinePhaseGuideMarkdown,
+  renderPipelineExecutionGuideMarkdown,
   renderFullPipelineDocumentationMarkdown,
 } from "../lib/pipeline-guide.js";
 import { definePipeline } from "../lib/define-pipeline.js";
@@ -191,6 +192,35 @@ describe("renderPipelineStepGuideMarkdown", () => {
     expect(md).toContain("Does step one");
     expect(md).toContain("input-a");
   });
+
+  it("renders AI Model Usage section when aiModelUsage is present", () => {
+    const def = makeSimpleDefinition();
+    createPipelineExecutionGuide(def);
+    const guide = def.steps[0]!.guide!;
+    guide.aiModelUsage = [
+      { modelSource: "brief.synthesisModel", maxTokens: 4000, purpose: "Decompose topic" },
+    ];
+    const md = renderPipelineStepGuideMarkdown({
+      stepId: "s1",
+      stepNumber: 1,
+      guide,
+    });
+    expect(md).toContain("## AI Model Usage");
+    expect(md).toContain("brief.synthesisModel");
+    expect(md).toContain("4000");
+    expect(md).toContain("Decompose topic");
+  });
+
+  it("does not render AI Model Usage section when aiModelUsage is absent", () => {
+    const def = makeSimpleDefinition();
+    createPipelineExecutionGuide(def);
+    const md = renderPipelineStepGuideMarkdown({
+      stepId: "s1",
+      stepNumber: 1,
+      guide: def.steps[0]!.guide!,
+    });
+    expect(md).not.toContain("## AI Model Usage");
+  });
 });
 
 describe("renderPipelinePhaseGuideMarkdown", () => {
@@ -222,5 +252,41 @@ describe("renderFullPipelineDocumentationMarkdown", () => {
     expect(md).toContain("Phase 1");
     expect(md).toContain("Step One");
     expect(md).toContain("Step Two");
+  });
+});
+
+describe("renderPipelineExecutionGuideMarkdown - AI Model Usage Summary", () => {
+  it("renders AI Model Usage Summary table when steps have aiModelUsage", () => {
+    const def = makeSimpleDefinition();
+    const guide = createPipelineExecutionGuide(def);
+    def.steps[0]!.guide!.aiModelUsage = [
+      { modelSource: "brief.synthesisModel", maxTokens: 4000, purpose: "Decompose topic" },
+    ];
+    def.steps[1]!.guide!.aiModelUsage = [
+      { modelSource: "brief.models", maxTokens: 8000, purpose: "Inquiry per model" },
+    ];
+    const stepNumbers = new Map([
+      ["s1", 1],
+      ["s2", 2],
+    ]);
+    const stepGuidesById = new Map(def.steps.map((s) => [s.id, s.guide]));
+    const md = renderPipelineExecutionGuideMarkdown({ guide, stepNumbers, stepGuidesById });
+    expect(md).toContain("## AI Model Usage Summary");
+    expect(md).toContain("brief.synthesisModel");
+    expect(md).toContain("brief.models");
+    expect(md).toContain("4000");
+    expect(md).toContain("8000");
+  });
+
+  it("does not render AI Model Usage Summary when no steps have aiModelUsage", () => {
+    const def = makeSimpleDefinition();
+    const guide = createPipelineExecutionGuide(def);
+    const stepNumbers = new Map([
+      ["s1", 1],
+      ["s2", 2],
+    ]);
+    const stepGuidesById = new Map(def.steps.map((s) => [s.id, s.guide]));
+    const md = renderPipelineExecutionGuideMarkdown({ guide, stepNumbers, stepGuidesById });
+    expect(md).not.toContain("## AI Model Usage Summary");
   });
 });
