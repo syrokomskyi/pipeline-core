@@ -230,6 +230,45 @@ export const assertStepPromptTemplateReady = async <
   }
 };
 
+const resolveModelSource = (modelSource: string, state: unknown): string | undefined => {
+  const parts = modelSource.split(".");
+  let current: unknown = state;
+  for (const part of parts) {
+    if (current === null || typeof current !== "object") {
+      return undefined;
+    }
+    current = (current as Record<string, unknown>)[part];
+  }
+  if (typeof current === "string") {
+    return current;
+  }
+  if (Array.isArray(current) && current.every((v) => typeof v === "string")) {
+    return current.join(", ");
+  }
+  return undefined;
+};
+
+const enrichGuidesWithModelIds = (
+  stepGuidesById: Map<string, PipelineStepGuide | undefined>,
+  state: unknown,
+): Map<string, PipelineStepGuide | undefined> => {
+  const enriched = new Map<string, PipelineStepGuide | undefined>();
+  for (const [stepId, guide] of stepGuidesById) {
+    if (!guide?.aiModelUsage || guide.aiModelUsage.length === 0) {
+      enriched.set(stepId, guide);
+      continue;
+    }
+    enriched.set(stepId, {
+      ...guide,
+      aiModelUsage: guide.aiModelUsage.map((usage) => ({
+        ...usage,
+        modelId: usage.modelId ?? resolveModelSource(usage.modelSource, state),
+      })),
+    });
+  }
+  return enriched;
+};
+
 export const writeGuideArtifacts = async <
   TState,
   TContext extends PipelineStepContext<TState>,
@@ -243,6 +282,9 @@ export const writeGuideArtifacts = async <
   if (!guide) {
     return;
   }
+
+  const enrichedGuides = enrichGuidesWithModelIds(stepGuidesById, ctx.state);
+
   const guideDir = path.join(ctx.getPipelineOutputDir(), "_guide");
   await ctx.ensureOutputDir(guideDir);
 
@@ -251,7 +293,7 @@ export const writeGuideArtifacts = async <
     renderPipelineExecutionGuideMarkdown({
       guide,
       stepNumbers,
-      stepGuidesById,
+      stepGuidesById: enrichedGuides,
     }),
   );
 
@@ -260,7 +302,7 @@ export const writeGuideArtifacts = async <
     renderFullPipelineGuideMarkdown({
       guide,
       stepNumbers,
-      stepGuidesById,
+      stepGuidesById: enrichedGuides,
     }),
   );
 
@@ -270,7 +312,7 @@ export const writeGuideArtifacts = async <
       renderPipelinePhaseGuideMarkdown({
         phase,
         stepNumbers,
-        stepGuidesById,
+        stepGuidesById: enrichedGuides,
       }),
     );
   }
@@ -281,7 +323,7 @@ export const writeGuideArtifacts = async <
   for (const phase of guide.phases) {
     for (const stepId of phase.stepIds) {
       const stepNumber = stepNumbers.get(stepId);
-      const stepGuide = stepGuidesById.get(stepId);
+      const stepGuide = enrichedGuides.get(stepId);
       if (stepNumber === undefined || !stepGuide) {
         continue;
       }

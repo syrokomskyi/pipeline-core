@@ -23,6 +23,7 @@ export type PipelineStepDecisionType =
 
 export type PipelineStepAiModelUsage = {
   modelSource: string;
+  modelId?: string;
   maxTokens?: number;
   purpose: string;
 };

@@ -317,7 +317,10 @@ const renderAiModelUsageSummaryTable = (options: {
     for (const usage of stepGuide.aiModelUsage) {
       const stepLabel = `${stepNumber}. ${stepGuide.title}`;
       const maxTokens = usage.maxTokens !== undefined ? String(usage.maxTokens) : "—";
-      rows.push(`| ${stepLabel} | \`${usage.modelSource}\` | ${maxTokens} | ${usage.purpose} |`);
+      const modelId = usage.modelId ? `\`${usage.modelId}\`` : "—";
+      rows.push(
+        `| ${stepLabel} | \`${usage.modelSource}\` | ${modelId} | ${maxTokens} | ${usage.purpose} |`,
+      );
     }
   }
 
@@ -328,8 +331,8 @@ const renderAiModelUsageSummaryTable = (options: {
   return [
     "## AI Model Usage Summary",
     "",
-    "| Step | Model | Max Tokens | Purpose |",
-    "|------|-------|-----------|---------|",
+    "| Step | Source | Model ID | Max Tokens | Purpose |",
+    "|------|--------|----------|-----------|---------|",
     ...rows,
     "",
   ];
@@ -469,14 +472,15 @@ const renderAiModelUsageSection = (usages: PipelineStepAiModelUsage[]): string[]
 
   const rows = usages.map((usage) => {
     const maxTokens = usage.maxTokens !== undefined ? String(usage.maxTokens) : "—";
-    return `| \`${usage.modelSource}\` | ${maxTokens} | ${usage.purpose} |`;
+    const modelId = usage.modelId ? `\`${usage.modelId}\`` : "—";
+    return `| \`${usage.modelSource}\` | ${modelId} | ${maxTokens} | ${usage.purpose} |`;
   });
 
   return [
     "## AI Model Usage",
     "",
-    "| Model | Max Tokens | Purpose |",
-    "|-------|-----------|---------|",
+    "| Source | Model ID | Max Tokens | Purpose |",
+    "|--------|----------|-----------|---------|",
     ...rows,
     "",
   ];
