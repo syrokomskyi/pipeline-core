@@ -20,6 +20,7 @@ import { ArtifactValidationError } from "./errors/artifact-validation-error.js";
 import { PipelinePauseError } from "./errors/pipeline-pause-error.js";
 import {
   findPipelinePhaseByStepId,
+  renderFullPipelineGuideMarkdown,
   renderPipelineExecutionGuideMarkdown,
   renderPipelinePhaseGuideMarkdown,
   renderPipelineStepGuideMarkdown,
@@ -248,6 +249,15 @@ export const writeGuideArtifacts = async <
   await writeTextFileEnsured(
     path.join(guideDir, "start-here.md"),
     renderPipelineExecutionGuideMarkdown({
+      guide,
+      stepNumbers,
+      stepGuidesById,
+    }),
+  );
+
+  await writeTextFileEnsured(
+    path.join(guideDir, "all.md"),
+    renderFullPipelineGuideMarkdown({
       guide,
       stepNumbers,
       stepGuidesById,

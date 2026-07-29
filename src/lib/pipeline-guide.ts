@@ -357,6 +357,88 @@ export const renderPipelineExecutionGuideMarkdown = (options: {
   ]);
 };
 
+export const renderFullPipelineGuideMarkdown = (options: {
+  guide: PipelineExecutionGuide;
+  stepNumbers: Map<string, number>;
+  stepGuidesById: Map<string, PipelineStepGuide | undefined>;
+}): string => {
+  const { guide, stepNumbers, stepGuidesById } = options;
+  const topLevelPhases = guide.phases.filter((phase) => !phase.parentPhaseId);
+
+  const phaseSections = guide.phases.flatMap((phase) => {
+    const headingDepth = Math.min(6, (phase.depth ?? 0) + 2);
+    const heading = `${"#".repeat(headingDepth)} Phase: ${phase.title}`;
+
+    return [
+      heading,
+      "",
+      ...stripLeadingHeading(
+        renderPipelinePhaseGuideMarkdown({
+          phase,
+          stepNumbers,
+          stepGuidesById,
+        }),
+      ),
+      "",
+    ];
+  });
+
+  const sortedStepIds = [...stepNumbers.entries()]
+    .sort(([, a], [, b]) => a - b)
+    .map(([stepId]) => stepId);
+
+  const stepSections = sortedStepIds.flatMap((stepId) => {
+    const stepNumber = stepNumbers.get(stepId);
+    const stepGuide = stepGuidesById.get(stepId);
+    if (stepNumber === undefined || !stepGuide) {
+      return [];
+    }
+
+    const phase = findPipelinePhaseByStepId(guide, stepId);
+
+    return [
+      `## Step ${stepNumber}: ${stepGuide.title}`,
+      "",
+      ...stripLeadingHeading(
+        renderPipelineStepGuideMarkdown({
+          stepId,
+          stepNumber,
+          guide: stepGuide,
+          phaseTitle: phase?.title,
+        }),
+      ),
+      "",
+    ];
+  });
+
+  const aiUsageLines = renderAiModelUsageSummaryTable(options);
+
+  return trimTrailingEmptyLines([
+    `# ${guide.title}`,
+    "",
+    guide.summary,
+    "",
+    ...createSection("Quick start", guide.quickStart ?? []),
+    ...createSection("Operating rules", guide.operatingRules ?? []),
+    "## Top-level phases",
+    "",
+    ...topLevelPhases.map((phase) => `- ${phase.title} \`${phase.id}\``),
+    "",
+    "## Route",
+    "",
+    ...renderPipelineRouteLines({ guide, stepNumbers, stepGuidesById }),
+    "",
+    "## Phase details",
+    "",
+    ...phaseSections,
+    "## Step details",
+    "",
+    ...stepSections,
+    "",
+    ...aiUsageLines,
+  ]);
+};
+
 export const renderPipelinePhaseGuideMarkdown = (options: {
   phase: PipelinePhaseGuide;
   stepNumbers: Map<string, number>;
