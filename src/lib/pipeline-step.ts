@@ -25,8 +25,7 @@ import type {
 
 export abstract class PipelineStep<TContext extends PipelineStepContext = PipelineStepContext> {
   #explainStepOverride?:
-    | PipelineStepGuideSeed
-    | PipelineStepGuideFactory<PipelineStepLike<TContext>>;
+    PipelineStepGuideSeed | PipelineStepGuideFactory<PipelineStepLike<TContext>>;
 
   abstract readonly id: string;
 
@@ -85,6 +84,16 @@ export abstract class PipelineStep<TContext extends PipelineStepContext = Pipeli
 
   async shouldSkip(ctx: TContext): Promise<boolean> {
     return this.getSkipIds(ctx).includes(this.id);
+  }
+
+  /**
+   * Returns the IDs of artifacts that should be validated for this run.
+   * Override in subclasses to exclude conditionally-declared artifacts
+   * (e.g. artifacts that are only produced when a brief flag is enabled).
+   * Defaults to all declared artifact IDs.
+   */
+  getActiveArtifactIds(_ctx: TContext): string[] {
+    return Object.keys(this.artifacts);
   }
 
   async validateBeforeStart(ctx: TContext): Promise<void> {
