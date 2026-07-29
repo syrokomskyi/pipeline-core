@@ -67,6 +67,7 @@ export const runPipelineEngine = async <
   const stepArtifactsById = new Map<string, PipelineArtifacts<TContext>>(
     options.steps.map((step) => [step.id, step.artifacts]),
   );
+  const stepsById = new Map(options.steps.map((step) => [step.id, step]));
   const stepGuidesById = new Map(options.steps.map((step) => [step.id, step.guide]));
   const selectedStepIds = buildSelectedStepIdSet({
     steps: options.steps,
@@ -85,7 +86,11 @@ export const runPipelineEngine = async <
 
   const assertAllArtifactsValid = async (stepId: string) => {
     const artifacts = stepArtifactsById.get(stepId) ?? {};
-    for (const artifactId of Object.keys(artifacts)) {
+    const step = stepsById.get(stepId);
+    const activeIds = step?.getActiveArtifactIds
+      ? await step.getActiveArtifactIds(ctx)
+      : Object.keys(artifacts);
+    for (const artifactId of activeIds) {
       await ctx.assertStepArtifactValid(stepId, artifactId);
     }
   };
@@ -137,8 +142,12 @@ export const runPipelineEngine = async <
 
   const stepHasExistingArtifacts = async (stepId: string): Promise<boolean> => {
     const artifacts = stepArtifactsById.get(stepId) ?? {};
+    const step = stepsById.get(stepId);
+    const activeIds = step?.getActiveArtifactIds
+      ? await step.getActiveArtifactIds(ctx)
+      : Object.keys(artifacts);
 
-    for (const artifactId of Object.keys(artifacts)) {
+    for (const artifactId of activeIds) {
       const artifactPath = ctx.getStepArtifactPath(stepId, artifactId);
       if (await ctx.fileExists(artifactPath)) {
         return true;

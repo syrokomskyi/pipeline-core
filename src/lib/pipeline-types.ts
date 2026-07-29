@@ -200,6 +200,7 @@ export type PipelineStepLike<TContext extends PipelineStepContext<any> = Pipelin
     explainStep?(context: PipelineExplainContext<PipelineStepLike<any>>): PipelineStepGuideSeed;
     getPromptFileNames?(): string[];
     shouldSkip?(ctx: TContext): boolean | Promise<boolean>;
+    getActiveArtifactIds?(ctx: TContext): string[] | Promise<string[]>;
     validateBeforeStart?(ctx: TContext): Promise<void>;
     hydrateFromArtifacts?(ctx: TContext): Promise<void>;
     retryPolicy: PipelineRetryPolicy;
