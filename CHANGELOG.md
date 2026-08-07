@@ -1,6 +1,25 @@
 # Changelog
 
 All notable changes to the `pipeline-core` project are documented here.
+## 2026-07-30 .. 2026-08-05
+
+### Added
+- Add changelog links to all README.md files across packages and apps.
+- Generate CHANGELOG.md files for all packages and applications.
+- Add AGENTS.md documentation with agent-related details for all packages and apps.
+
+### Changed
+- Migrate forge dependency from @webgogol/forge to @warpgogol/forge and update related documentation.
+- Rename package @wgogol/changelog-live to @warpgogol/changelog-live throughout the monorepo.
+- Upgrade npm dependencies, including TypeScript, eslint, and various packages for improved compatibility and new features.
+- Update package.json files for multiple packages and apps to reflect dependency and naming changes.
+
+### Fixed
+- Downgrade TypeScript from 7.0.2 to 6.0.3 to restore typescript-eslint compatibility.
+
+### Documentation
+- Update and expand agent-related documentation in AGENTS.md, README.md, and skill definitions across the repository.
+
 ## 2026-07-23 .. 2026-07-29
 
 ### Added
