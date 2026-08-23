@@ -32,14 +32,15 @@ test("the checked inventory exactly matches every workspace pipeline consumer", 
   expect(actual.sort()).toEqual(expected.sort());
 });
 
-test("pipeline consumers contain no legacy reuse policy vocabulary", async () => {
+test("pipeline consumers contain no local artifact reuse policy", async () => {
   const inventory = await fs.readFile(inventoryPath, "utf8");
   const consumers = inventory.split(/\r?\n/).flatMap((line) => {
     const match = /^  - (.+)$/.exec(line);
     return match ? [match[1]!] : [];
   });
   const violations: string[] = [];
-  const legacy = /PipelineReusePolicy|reuse_valid_artifacts|always_run|reusePolicy/;
+  const legacy =
+    /PipelineReusePolicy|reuse_valid_artifacts|always_run|reusePolicy|Skipping[^\n]*(?:already exists|exists[^\n]*skipping)/i;
   for (const consumer of consumers) {
     const root = path.join(repositoryRoot, consumer);
     const visit = async (directory: string): Promise<void> => {
