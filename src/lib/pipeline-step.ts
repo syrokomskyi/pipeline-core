@@ -37,12 +37,14 @@ export abstract class PipelineStep<TContext extends PipelineStepContext = Pipeli
 
   readonly executionSemantics = "pure_artifact" as const;
 
-  readonly fingerprint: PipelineFingerprintContract<TContext> = {
-    schema: "pipeline-fingerprint-contract@1",
-    executionSemantics: this.executionSemantics,
-    implementationInputs: async () => [],
-    operationInputs: async () => [],
-  };
+  get fingerprint(): PipelineFingerprintContract<TContext> {
+    return {
+      schema: "pipeline-fingerprint-contract@1",
+      executionSemantics: this.executionSemantics,
+      implementationInputs: async () => [],
+      operationInputs: async () => [],
+    };
+  }
 
   /**
    * Optional list of step IDs to skip. When set, the engine calls
