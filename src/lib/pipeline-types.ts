@@ -169,15 +169,15 @@ export type PipelineStepContext<TState = unknown> = {
   ensureOutputDir: (dirPath: string) => Promise<void>;
   fileExists: (filePath: string) => Promise<boolean>;
   assertStepArtifactValid: (stepId: string, artifactId: string) => Promise<void>;
-  isStepReusable?: (options: {
+  isStepReusable?: <TStepContext extends PipelineStepContext<TState>>(options: {
     stepId: string;
     artifacts: readonly string[];
-    fingerprint: PipelineFingerprintContract<PipelineStepContext<TState>>;
+    fingerprint: PipelineFingerprintContract<TStepContext>;
   }) => Promise<boolean>;
-  recordStepCompletion?: (options: {
+  recordStepCompletion?: <TStepContext extends PipelineStepContext<TState>>(options: {
     stepId: string;
     artifacts: readonly string[];
-    fingerprint: PipelineFingerprintContract<PipelineStepContext<TState>>;
+    fingerprint: PipelineFingerprintContract<TStepContext>;
   }) => Promise<void>;
   logStepEvent: (event: {
     event: string;
@@ -228,10 +228,8 @@ export type PipelineStepLike<TContext extends PipelineStepContext<any> = Pipelin
     validateBeforeStart?(ctx: TContext): Promise<void>;
     hydrateFromArtifacts?(ctx: TContext): Promise<void>;
     retryPolicy: PipelineRetryPolicy;
-    executionSemantics?: PipelineStepExecutionSemantics;
-    fingerprint?: PipelineFingerprintContract<TContext>;
-    /** @deprecated Transitional consumer field; engine migration removes it in RFC-0094. */
     executionSemantics: PipelineStepExecutionSemantics;
+    fingerprint: PipelineFingerprintContract<never>;
     run(ctx: TContext): Promise<void>;
   };
 

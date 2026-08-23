@@ -48,6 +48,7 @@ const createTestStep = (
   artifacts: {},
   retryPolicy: "none",
   executionSemantics: "pure_artifact",
+  fingerprint: { schema: "pipeline-fingerprint-contract@1", executionSemantics: "pure_artifact", implementationInputs: async () => [], operationInputs: async () => [] },
   run: runImpl ?? (async () => {}),
 });
 

@@ -19,6 +19,7 @@ import type {
   PipelineStepGuide,
   PipelineStepLike,
   PipelineFingerprintContract,
+  PipelineStepExecutionSemantics,
   PipelineRetryPolicy,
   PipelineStepContext,
 } from "./pipeline-types.js";
@@ -35,7 +36,7 @@ export abstract class PipelineStep<TContext extends PipelineStepContext = Pipeli
 
   readonly retryPolicy: PipelineRetryPolicy = "on_output_invalid";
 
-  readonly executionSemantics = "pure_artifact" as const;
+  readonly executionSemantics: PipelineStepExecutionSemantics = "pure_artifact";
 
   get fingerprint(): PipelineFingerprintContract<TContext> {
     return {
