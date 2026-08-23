@@ -198,7 +198,7 @@ export const runPipelineEngine = async <
     printStepGuide({ steps: options.steps, stepId: step.id, stepNumbers, guide: options.guide });
 
     if (
-      step.reusePolicy === "reuse_valid_artifacts" &&
+      step.executionSemantics === "pure_artifact" &&
       hasDeclaredArtifacts(step.id) &&
       !forcedStepIds.has(step.id) &&
       (await stepHasExistingArtifacts(step.id)) &&

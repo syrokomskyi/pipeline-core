@@ -7,7 +7,7 @@ function makeStep(id: string): PipelineStepLike {
     id,
     artifacts: {},
     retryPolicy: "none",
-    reusePolicy: "always_run",
+    executionSemantics: "pure_artifact",
     run: async () => {},
   };
 }

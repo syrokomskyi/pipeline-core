@@ -18,7 +18,7 @@ import type {
   PipelineStepGuideSeed,
   PipelineStepGuide,
   PipelineStepLike,
-  PipelineReusePolicy,
+  PipelineFingerprintContract,
   PipelineRetryPolicy,
   PipelineStepContext,
 } from "./pipeline-types.js";
@@ -35,7 +35,14 @@ export abstract class PipelineStep<TContext extends PipelineStepContext = Pipeli
 
   readonly retryPolicy: PipelineRetryPolicy = "on_output_invalid";
 
-  readonly reusePolicy: PipelineReusePolicy = "reuse_valid_artifacts";
+  readonly executionSemantics = "pure_artifact" as const;
+
+  readonly fingerprint: PipelineFingerprintContract<TContext> = {
+    schema: "pipeline-fingerprint-contract@1",
+    executionSemantics: this.executionSemantics,
+    implementationInputs: async () => [],
+    operationInputs: async () => [],
+  };
 
   /**
    * Optional list of step IDs to skip. When set, the engine calls

@@ -26,10 +26,10 @@ class TestStep extends PipelineStep {
 }
 
 describe("PipelineStep", () => {
-  it("has default retryPolicy and reusePolicy", () => {
+  it("has default retryPolicy and executionSemantics", () => {
     const step = new TestStep();
     expect(step.retryPolicy).toBe("on_output_invalid");
-    expect(step.reusePolicy).toBe("reuse_valid_artifacts");
+    expect(step.executionSemantics).toBe("pure_artifact");
   });
 
   it("getArtifactPath delegates to ctx", () => {

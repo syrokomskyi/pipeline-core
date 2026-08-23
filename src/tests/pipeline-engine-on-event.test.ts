@@ -47,7 +47,7 @@ const createTestStep = (
   id,
   artifacts: {},
   retryPolicy: "none",
-  reusePolicy: "always_run",
+  executionSemantics: "pure_artifact",
   run: runImpl ?? (async () => {}),
 });
 

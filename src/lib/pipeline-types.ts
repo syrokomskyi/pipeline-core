@@ -16,7 +16,21 @@
 
 export type PipelineRetryPolicy = "none" | "on_output_invalid";
 
-export type PipelineReusePolicy = "reuse_valid_artifacts" | "always_run";
+export type PipelineStepExecutionSemantics = "pure_artifact" | "external_effect" | "human_gate";
+
+export type PipelineFingerprintInput =
+  | { kind: "file"; id: string; path: string }
+  | { kind: "directory"; id: string; path: string }
+  | { kind: "value"; id: string; value: unknown }
+  | { kind: "upstream_artifact"; stepId: string; artifactId: string }
+  | { kind: "runtime"; id: string; version: string };
+
+export type PipelineFingerprintContract<TContext extends PipelineStepContext = PipelineStepContext> = {
+  schema: "pipeline-fingerprint-contract@1";
+  executionSemantics: PipelineStepExecutionSemantics;
+  implementationInputs: (ctx: TContext) => Promise<readonly PipelineFingerprintInput[]>;
+  operationInputs: (ctx: TContext) => Promise<readonly PipelineFingerprintInput[]>;
+};
 
 export type PipelineStepDecisionType =
   "auto" | "human_confirms" | "human_provides_content" | "human_reviews" | "client_chooses";
@@ -204,7 +218,10 @@ export type PipelineStepLike<TContext extends PipelineStepContext<any> = Pipelin
     validateBeforeStart?(ctx: TContext): Promise<void>;
     hydrateFromArtifacts?(ctx: TContext): Promise<void>;
     retryPolicy: PipelineRetryPolicy;
-    reusePolicy: PipelineReusePolicy;
+    executionSemantics?: PipelineStepExecutionSemantics;
+    fingerprint?: PipelineFingerprintContract<TContext>;
+    /** @deprecated Transitional consumer field; engine migration removes it in RFC-0094. */
+    executionSemantics: PipelineStepExecutionSemantics;
     run(ctx: TContext): Promise<void>;
   };
 
