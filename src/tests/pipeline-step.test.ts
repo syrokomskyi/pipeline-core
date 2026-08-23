@@ -97,6 +97,19 @@ describe("PipelineStep", () => {
     expect(seed.title).toBe("Step count: 1");
   });
 
+  it("binds declaration factory and configuration to the operation fingerprint", async () => {
+    const step = new TestStep().withExplanation(
+      { title: "Configured", purpose: "Configured step", inputs: [] },
+      { factory: "configured-step", config: { model: "editorial" } },
+    );
+
+    await expect(step.fingerprint.operationInputs(makeCtx())).resolves.toContainEqual({
+      kind: "value",
+      id: "step-declaration",
+      value: { factory: "configured-step", config: { model: "editorial" } },
+    });
+  });
+
   it("getSkipIds returns skipStepIds by default", () => {
     const step = new TestStep();
     expect(step.getSkipIds(makeCtx())).toEqual([]);

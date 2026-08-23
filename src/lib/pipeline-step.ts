@@ -27,6 +27,7 @@ import type {
 export abstract class PipelineStep<TContext extends PipelineStepContext = PipelineStepContext> {
   #explainStepOverride?:
     PipelineStepGuideSeed | PipelineStepGuideFactory<PipelineStepLike<TContext>>;
+  #declaredOperationValue?: unknown;
 
   abstract readonly id: string;
 
@@ -46,7 +47,11 @@ export abstract class PipelineStep<TContext extends PipelineStepContext = Pipeli
       artifacts: Object.fromEntries(
         Object.entries(this.artifacts).map(([artifactId, artifact]) => [
           artifactId,
-          { kind: artifact.kind, relativePath: artifact.relativePath, optional: artifact.optional ?? false },
+          {
+            kind: artifact.kind,
+            relativePath: artifact.relativePath,
+            optional: artifact.optional ?? false,
+          },
         ]),
       ),
     };
@@ -57,11 +62,24 @@ export abstract class PipelineStep<TContext extends PipelineStepContext = Pipeli
       schema: "pipeline-fingerprint-contract@1",
       executionSemantics: this.executionSemantics,
       implementationInputs: async () => [
-        { kind: "runtime", id: "pipeline-core-lifecycle", version: "pipeline-artifact-lifecycle@1" },
+        {
+          kind: "runtime",
+          id: "pipeline-core-lifecycle",
+          version: "pipeline-artifact-lifecycle@1",
+        },
         { kind: "value", id: "step-constructor", value: this.constructor.toString() },
       ],
       operationInputs: async (ctx) => [
         { kind: "value", id: "step-operation", value: this.fingerprintOperationValue(ctx) },
+        ...(this.#declaredOperationValue === undefined
+          ? []
+          : [
+              {
+                kind: "value" as const,
+                id: "step-declaration",
+                value: this.#declaredOperationValue,
+              },
+            ]),
       ],
     };
   }
@@ -88,8 +106,10 @@ export abstract class PipelineStep<TContext extends PipelineStepContext = Pipeli
 
   withExplanation(
     explanation: PipelineStepGuideSeed | PipelineStepGuideFactory<PipelineStepLike<TContext>>,
+    declaredOperationValue?: unknown,
   ): this {
     this.#explainStepOverride = explanation;
+    this.#declaredOperationValue = declaredOperationValue;
     return this;
   }
 
