@@ -30,6 +30,16 @@ export type PipelineFingerprintContract<TContext extends PipelineStepContext = P
   executionSemantics: PipelineStepExecutionSemantics;
   implementationInputs: (ctx: TContext) => Promise<readonly PipelineFingerprintInput[]>;
   operationInputs: (ctx: TContext) => Promise<readonly PipelineFingerprintInput[]>;
+  completion?:
+    | { kind: "human_decision"; artifactId: string }
+    | { kind: "external_receipt"; artifactId: string };
+};
+
+export type PipelineFingerprintResolution = {
+  dependencyFingerprint: string;
+  implementationFingerprint: string;
+  operationFingerprint: string;
+  upstream: Array<{ stepId: string; artifactId: string; sha256: string }>;
 };
 
 export type PipelineStepDecisionType =
@@ -99,7 +109,7 @@ export type PipelineExecutionGuide = {
 
 export type PipelineRunOptions = {
   dryRun?: boolean;
-  force?: string[];
+  refresh?: { stepIds: string[]; nonce: string };
   from?: string;
   only?: string[];
   to?: string;
@@ -179,6 +189,10 @@ export type PipelineStepContext<TState = unknown> = {
     artifacts: readonly string[];
     fingerprint: PipelineFingerprintContract<TStepContext>;
   }) => Promise<void>;
+  resolveStepFingerprint?: <TStepContext extends PipelineStepContext<TState>>(options: {
+    stepId: string;
+    fingerprint: PipelineFingerprintContract<TStepContext>;
+  }) => Promise<PipelineFingerprintResolution>;
   logStepEvent: (event: {
     event: string;
     stepId?: string;
@@ -229,7 +243,7 @@ export type PipelineStepLike<TContext extends PipelineStepContext<any> = Pipelin
     hydrateFromArtifacts?(ctx: TContext): Promise<void>;
     retryPolicy: PipelineRetryPolicy;
     executionSemantics: PipelineStepExecutionSemantics;
-    fingerprint: PipelineFingerprintContract<never>;
+    fingerprint: PipelineFingerprintContract<TContext>;
     run(ctx: TContext): Promise<void>;
   };
 

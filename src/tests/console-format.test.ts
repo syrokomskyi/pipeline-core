@@ -5,7 +5,7 @@ import {
   formatPipelineStart,
   formatPipelineFinished,
   formatDryRunSummary,
-  formatForceSummary,
+  formatRefreshSummary,
   formatSkippedStep,
   formatPipelineError,
   formatPipelineOverview,
@@ -97,11 +97,11 @@ describe("formatDryRunSummary", () => {
   });
 });
 
-describe("formatForceSummary", () => {
-  it("lists forced step ids", () => {
-    const result = formatForceSummary(["a", "b", "c"]);
+describe("formatRefreshSummary", () => {
+  it("lists refreshed step ids", () => {
+    const result = formatRefreshSummary(["a", "b", "c"]);
     expect(result).toContain("a, b, c");
-    expect(result).toContain("Forced steps");
+    expect(result).toContain("Refreshed steps");
   });
 });
 

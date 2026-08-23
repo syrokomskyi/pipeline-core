@@ -17,7 +17,7 @@
 
 import {
   formatDryRunSummary,
-  formatForceSummary,
+  formatRefreshSummary,
   formatPhaseStart,
   formatSkippedStep,
 } from "./console-format.js";
@@ -129,11 +129,11 @@ export const runPipelineEngine = async <
     return ctx;
   }
 
-  if ((runOptions.force?.length ?? 0) > 0) {
-    console.log(`\n${formatForceSummary(runOptions.force ?? [])}`);
+  if ((runOptions.refresh?.stepIds.length ?? 0) > 0) {
+    console.log(`\n${formatRefreshSummary(runOptions.refresh?.stepIds ?? [])}`);
   }
 
-  const forcedStepIds = new Set(runOptions.force ?? []);
+  const refreshedStepIds = new Set(runOptions.refresh?.stepIds ?? []);
   await writeGuideArtifacts({ ctx, guide: options.guide, stepNumbers, stepGuidesById });
   let currentPhaseIds: string[] = [];
 
@@ -147,6 +147,15 @@ export const runPipelineEngine = async <
     }
 
     ctx.currentStepId = step.id;
+    const effectiveFingerprint = refreshedStepIds.has(step.id)
+      ? {
+          ...step.fingerprint,
+          operationInputs: async (fingerprintContext: typeof ctx) => [
+            ...await step.fingerprint.operationInputs(fingerprintContext),
+            { kind: "value" as const, id: "operator-refresh-nonce", value: runOptions.refresh?.nonce },
+          ],
+        }
+      : step.fingerprint;
     const phaseStack = options.guide
       ? options.guide.phases
           .filter((phase) => phase.stepIds.includes(step.id))
@@ -181,15 +190,13 @@ export const runPipelineEngine = async <
     printStepGuide({ steps: options.steps, stepId: step.id, stepNumbers, guide: options.guide });
 
     if (
-      step.executionSemantics === "pure_artifact" &&
       hasDeclaredArtifacts(step.id) &&
-      !forcedStepIds.has(step.id) &&
       (await ctx.isStepReusable?.({
         stepId: step.id,
         artifacts: step.getActiveArtifactIds
           ? await step.getActiveArtifactIds(ctx)
           : Object.keys(step.artifacts),
-        fingerprint: step.fingerprint,
+        fingerprint: effectiveFingerprint,
       })) === true &&
       (await hasAllArtifactsValid(step.id))
     ) {
@@ -334,7 +341,7 @@ export const runPipelineEngine = async <
       artifacts: step.getActiveArtifactIds
         ? await step.getActiveArtifactIds(ctx)
         : Object.keys(step.artifacts),
-      fingerprint: step.fingerprint,
+      fingerprint: effectiveFingerprint,
     });
 
     await completePhaseIfNeeded({ ctx, guide: options.guide, selectedStepIds, stepId: step.id });

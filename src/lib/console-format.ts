@@ -179,8 +179,8 @@ export const formatDryRunSummary = (
   );
 };
 
-export const formatForceSummary = (stepIds: string[]): string => {
-  return box("Forced steps", [stepIds.join(", ")], "warning");
+export const formatRefreshSummary = (stepIds: string[]): string => {
+  return box("Refreshed steps", [stepIds.join(", ")], "warning");
 };
 
 export const formatSkippedStep = (stepId: string, reason: string): string => {

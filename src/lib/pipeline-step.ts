@@ -38,12 +38,31 @@ export abstract class PipelineStep<TContext extends PipelineStepContext = Pipeli
 
   readonly executionSemantics: PipelineStepExecutionSemantics = "pure_artifact";
 
+  /** Override when public step configuration does not fully describe output-affecting options. */
+  protected fingerprintOperationValue(_ctx: TContext): unknown {
+    return {
+      id: this.id,
+      retryPolicy: this.retryPolicy,
+      artifacts: Object.fromEntries(
+        Object.entries(this.artifacts).map(([artifactId, artifact]) => [
+          artifactId,
+          { kind: artifact.kind, relativePath: artifact.relativePath, optional: artifact.optional ?? false },
+        ]),
+      ),
+    };
+  }
+
   get fingerprint(): PipelineFingerprintContract<TContext> {
     return {
       schema: "pipeline-fingerprint-contract@1",
       executionSemantics: this.executionSemantics,
-      implementationInputs: async () => [],
-      operationInputs: async () => [],
+      implementationInputs: async () => [
+        { kind: "runtime", id: "pipeline-core-lifecycle", version: "pipeline-artifact-lifecycle@1" },
+        { kind: "value", id: "step-constructor", value: this.constructor.toString() },
+      ],
+      operationInputs: async (ctx) => [
+        { kind: "value", id: "step-operation", value: this.fingerprintOperationValue(ctx) },
+      ],
     };
   }
 
