@@ -318,31 +318,39 @@ export const runPipelineEngine = async <
       );
     }
 
-    await ctx.ensureOutputDir(ctx.getStepOutputDir(step.id));
-    await writeStepGuideArtifact({
-      ctx,
-      steps: options.steps,
-      stepId: step.id,
-      stepNumbers,
-      guide: options.guide,
-    });
+    const usesOutputTransaction = step.executionSemantics === "pure_artifact";
+    if (usesOutputTransaction) await ctx.beginStepOutputTransaction?.(step.id);
+    try {
+      await ctx.ensureOutputDir(ctx.getStepOutputDir(step.id));
+      await writeStepGuideArtifact({
+        ctx,
+        steps: options.steps,
+        stepId: step.id,
+        stepNumbers,
+        guide: options.guide,
+      });
 
-    await runStepWithRetry({
-      step,
-      ctx,
-      emit,
-      stepGuideTitle,
-      assertAllArtifactsValid,
-      stepGuidesById,
-      stepArtifactsById,
-    });
-    await ctx.recordStepCompletion?.({
-      stepId: step.id,
-      artifacts: step.getActiveArtifactIds
-        ? await step.getActiveArtifactIds(ctx)
-        : Object.keys(step.artifacts),
-      fingerprint: effectiveFingerprint,
-    });
+      await runStepWithRetry({
+        step,
+        ctx,
+        emit,
+        stepGuideTitle,
+        assertAllArtifactsValid,
+        stepGuidesById,
+        stepArtifactsById,
+      });
+      await ctx.recordStepCompletion?.({
+        stepId: step.id,
+        artifacts: step.getActiveArtifactIds
+          ? await step.getActiveArtifactIds(ctx)
+          : Object.keys(step.artifacts),
+        fingerprint: effectiveFingerprint,
+      });
+      if (usesOutputTransaction) await ctx.commitStepOutputTransaction?.(step.id);
+    } catch (error) {
+      if (usesOutputTransaction) await ctx.abortStepOutputTransaction?.(step.id);
+      throw error;
+    }
 
     await completePhaseIfNeeded({ ctx, guide: options.guide, selectedStepIds, stepId: step.id });
     currentPhaseIds = advancePhasesAfterStep({

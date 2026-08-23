@@ -193,6 +193,9 @@ export type PipelineStepContext<TState = unknown> = {
     stepId: string;
     fingerprint: PipelineFingerprintContract<TStepContext>;
   }) => Promise<PipelineFingerprintResolution>;
+  beginStepOutputTransaction?: (stepId: string) => Promise<void>;
+  commitStepOutputTransaction?: (stepId: string) => Promise<void>;
+  abortStepOutputTransaction?: (stepId: string) => Promise<void>;
   logStepEvent: (event: {
     event: string;
     stepId?: string;
