@@ -222,7 +222,15 @@ const resolvePipelineStepGuide = <TStep extends PipelineStepLike>(
       (nextStep
         ? `${resolvePipelineStepGuide(nextStep, context).title} (\`${nextStep.id}\`)`
         : "Pipeline complete"),
-    notes: seed.notes,
+    notes: [
+      ...(seed.notes ?? []),
+      `Artifact lifecycle: \`${step.executionSemantics}\`. Reuse requires a current dependency fingerprint, verified output digests, and domain validation; file existence alone is never sufficient.`,
+      step.executionSemantics === "human_gate"
+        ? "If reviewed inputs change, the recorded human decision becomes stale. Review the current artifacts and record a decision bound to the new fingerprint."
+        : step.executionSemantics === "external_effect"
+          ? "If completion is uncertain, reconcile the transport with the operation idempotency key and supply a verified receipt before retrying."
+          : "If this step is invalidated, inspect the manifest/event reason, correct the declared input or output, and rerun; downstream consumers refresh lazily.",
+    ],
     phaseId: context.getPhaseForStep(step.id)?.id,
     aiModelUsage: seed.aiModelUsage,
   };

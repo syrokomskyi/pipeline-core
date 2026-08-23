@@ -233,7 +233,7 @@ export type PipelinePhaseLike<TStep extends PipelineStepLike<any> = PipelineStep
   explainPhase: (context: PipelineExplainContext<TStep>) => PipelinePhaseGuideSeed;
 };
 
-export type PipelineStepLike<TContext extends PipelineStepContext<any> = PipelineStepContext<any>> =
+export type PipelineStepLike<TContext extends PipelineStepContext<any> = any> =
   {
     id: string;
     artifacts: PipelineArtifacts<any>;
