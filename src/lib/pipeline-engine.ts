@@ -140,23 +140,6 @@ export const runPipelineEngine = async <
   const selectedSteps = options.steps.filter((step) => selectedStepIds.has(step.id));
   emit?.({ type: "pipeline_started", totalSteps: selectedSteps.length });
 
-  const stepHasExistingArtifacts = async (stepId: string): Promise<boolean> => {
-    const artifacts = stepArtifactsById.get(stepId) ?? {};
-    const step = stepsById.get(stepId);
-    const activeIds = step?.getActiveArtifactIds
-      ? await step.getActiveArtifactIds(ctx)
-      : Object.keys(artifacts);
-
-    for (const artifactId of activeIds) {
-      const artifactPath = ctx.getStepArtifactPath(stepId, artifactId);
-      if (await ctx.fileExists(artifactPath)) {
-        return true;
-      }
-    }
-
-    return false;
-  };
-
   for (const step of options.steps) {
     if (!selectedStepIds.has(step.id)) {
       console.log(formatSkippedStep(step.id, "outside selected execution scope"));
@@ -201,7 +184,13 @@ export const runPipelineEngine = async <
       step.executionSemantics === "pure_artifact" &&
       hasDeclaredArtifacts(step.id) &&
       !forcedStepIds.has(step.id) &&
-      (await stepHasExistingArtifacts(step.id)) &&
+      (await ctx.isStepReusable?.({
+        stepId: step.id,
+        artifacts: step.getActiveArtifactIds
+          ? await step.getActiveArtifactIds(ctx)
+          : Object.keys(step.artifacts),
+        fingerprint: step.fingerprint,
+      })) === true &&
       (await hasAllArtifactsValid(step.id))
     ) {
       console.log(`Skipping step ${step.id}: reusing valid artifacts`);

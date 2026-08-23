@@ -169,6 +169,11 @@ export type PipelineStepContext<TState = unknown> = {
   ensureOutputDir: (dirPath: string) => Promise<void>;
   fileExists: (filePath: string) => Promise<boolean>;
   assertStepArtifactValid: (stepId: string, artifactId: string) => Promise<void>;
+  isStepReusable?: (options: {
+    stepId: string;
+    artifacts: readonly string[];
+    fingerprint: PipelineFingerprintContract<PipelineStepContext<TState>>;
+  }) => Promise<boolean>;
   logStepEvent: (event: {
     event: string;
     stepId?: string;
