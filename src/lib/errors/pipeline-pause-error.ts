@@ -7,7 +7,7 @@
 </non-goals>
 </MODULE_CONTRACT>
 <CHANGE_SUMMARY>
-  <item>Initial creation of the PipelinePauseError class for error handling.</item>
+  <item>Tidied by compass.summary.trim; see git history for prior entries.</item>
 </CHANGE_SUMMARY>
 */
 

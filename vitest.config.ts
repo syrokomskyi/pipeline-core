@@ -1,6 +1,6 @@
 /*
 <MODULE_CONTRACT>
-<purpose>Configure Vitest for TypeScript project testing</purpose>
+<purpose>Configure Vitest for TypeScript project testing for reliable use by its direct callers and maintainers.</purpose>
 <non-goals>
   <item>Provide test case implementations</item>
   <item>Handle test result reporting</item>

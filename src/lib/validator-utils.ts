@@ -1,6 +1,6 @@
 /*
 <MODULE_CONTRACT>
-<purpose>Composes multiple asynchronous validators into a single validator function.</purpose>
+<purpose>Composes multiple asynchronous validators into a single validator function. for reliable use by its direct callers and maintainers.</purpose>
 <non-goals>
   <item>Does not handle synchronous validation logic.</item>
   <item>Does not provide error handling for individual validators.</item>

@@ -1,6 +1,6 @@
 /*
 <MODULE_CONTRACT>
-<purpose>Internal helpers for the pipeline execution engine in @syrokomskyi/pipeline-core.</purpose>
+<purpose>Internal helpers for the pipeline execution engine in @syrokomskyi/pipeline-core. for reliable use by its direct callers and maintainers.</purpose>
 <non-goals>
   <item>Does not drive the main step execution loop (see pipeline-engine.ts).</item>
   <item>Does not manage step state or artifact registries directly.</item>
