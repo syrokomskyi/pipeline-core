@@ -174,6 +174,11 @@ export type PipelineStepContext<TState = unknown> = {
     artifacts: readonly string[];
     fingerprint: PipelineFingerprintContract<PipelineStepContext<TState>>;
   }) => Promise<boolean>;
+  recordStepCompletion?: (options: {
+    stepId: string;
+    artifacts: readonly string[];
+    fingerprint: PipelineFingerprintContract<PipelineStepContext<TState>>;
+  }) => Promise<void>;
   logStepEvent: (event: {
     event: string;
     stepId?: string;

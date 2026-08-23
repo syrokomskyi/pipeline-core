@@ -329,6 +329,13 @@ export const runPipelineEngine = async <
       stepGuidesById,
       stepArtifactsById,
     });
+    await ctx.recordStepCompletion?.({
+      stepId: step.id,
+      artifacts: step.getActiveArtifactIds
+        ? await step.getActiveArtifactIds(ctx)
+        : Object.keys(step.artifacts),
+      fingerprint: step.fingerprint,
+    });
 
     await completePhaseIfNeeded({ ctx, guide: options.guide, selectedStepIds, stepId: step.id });
     currentPhaseIds = advancePhasesAfterStep({
