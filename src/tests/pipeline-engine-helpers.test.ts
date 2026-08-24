@@ -112,38 +112,12 @@ describe("classifyArtifactValidationError", () => {
     expect(result).toBe(err);
   });
 
-  it("returns null when assertAllArtifactsValid passes", async () => {
+  it("preserves a non-artifact error without probing current-step outputs", async () => {
     const result = await classifyArtifactValidationError({
-      assertAllArtifactsValid: async () => {},
+      assertAllArtifactsValid: async () => {
+        throw new Error("must not be called");
+      },
       error: new Error("some other error"),
-      stepId: "s",
-    });
-    expect(result).toBeNull();
-  });
-
-  it("returns ArtifactValidationError when assertAllArtifactsValid throws it", async () => {
-    const validationErr = new ArtifactValidationError({
-      ownerStepId: "s",
-      artifactId: "a",
-      absolutePath: "/p",
-      reason: "r",
-    });
-    const result = await classifyArtifactValidationError({
-      assertAllArtifactsValid: async () => {
-        throw validationErr;
-      },
-      error: new Error("original"),
-      stepId: "s",
-    });
-    expect(result).toBe(validationErr);
-  });
-
-  it("returns null when assertAllArtifactsValid throws non-ArtifactValidationError", async () => {
-    const result = await classifyArtifactValidationError({
-      assertAllArtifactsValid: async () => {
-        throw new Error("other");
-      },
-      error: new Error("original"),
       stepId: "s",
     });
     expect(result).toBeNull();

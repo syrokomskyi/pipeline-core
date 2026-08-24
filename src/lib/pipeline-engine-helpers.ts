@@ -9,6 +9,7 @@
 <CHANGE_SUMMARY>
   <item>Extracted internal engine helpers from pipeline-engine.ts during file-size refactor.</item>
   <item>Added buildPauseContext helper to enrich pipeline_paused events with pauseType, declarationText, availableArtifacts, and requiredFiles for agent-driven pause interaction.</item>
+  <item>Preserve the original preflight failure instead of validating outputs the current step has not created.</item>
 </CHANGE_SUMMARY>
 */
 
@@ -83,12 +84,7 @@ export const classifyArtifactValidationError = async (options: {
     return options.error;
   }
 
-  try {
-    await options.assertAllArtifactsValid(options.stepId);
-    return null;
-  } catch (validationError) {
-    return validationError instanceof ArtifactValidationError ? validationError : null;
-  }
+  return null;
 };
 
 export const getErrorMessage = (error: unknown): string => {
