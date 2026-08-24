@@ -109,7 +109,6 @@ export type PipelineExecutionGuide = {
 
 export type PipelineRunOptions = {
   dryRun?: boolean;
-  refresh?: { stepIds: string[]; nonce: string };
   from?: string;
   only?: string[];
   to?: string;
@@ -179,20 +178,6 @@ export type PipelineStepContext<TState = unknown> = {
   ensureOutputDir: (dirPath: string) => Promise<void>;
   fileExists: (filePath: string) => Promise<boolean>;
   assertStepArtifactValid: (stepId: string, artifactId: string) => Promise<void>;
-  isStepReusable?: <TStepContext extends PipelineStepContext<TState>>(options: {
-    stepId: string;
-    artifacts: readonly string[];
-    fingerprint: PipelineFingerprintContract<TStepContext>;
-  }) => Promise<boolean>;
-  recordStepCompletion?: <TStepContext extends PipelineStepContext<TState>>(options: {
-    stepId: string;
-    artifacts: readonly string[];
-    fingerprint: PipelineFingerprintContract<TStepContext>;
-  }) => Promise<void>;
-  resolveStepFingerprint?: <TStepContext extends PipelineStepContext<TState>>(options: {
-    stepId: string;
-    fingerprint: PipelineFingerprintContract<TStepContext>;
-  }) => Promise<PipelineFingerprintResolution>;
   beginStepOutputTransaction?: (stepId: string) => Promise<void>;
   commitStepOutputTransaction?: (stepId: string) => Promise<void>;
   abortStepOutputTransaction?: (stepId: string) => Promise<void>;

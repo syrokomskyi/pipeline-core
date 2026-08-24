@@ -224,12 +224,12 @@ const resolvePipelineStepGuide = <TStep extends PipelineStepLike>(
         : "Pipeline complete"),
     notes: [
       ...(seed.notes ?? []),
-      `Artifact lifecycle: \`${step.executionSemantics}\`. Reuse requires a current dependency fingerprint, verified output digests, and domain validation; file existence alone is never sufficient.`,
+      `Artifact lifecycle: \`${step.executionSemantics}\`. Reuse is based only on the presence of every required output. Delete an output to rebuild its step.`,
       step.executionSemantics === "human_gate"
-        ? "If reviewed inputs change, the recorded human decision becomes stale. Review the current artifacts and record a decision bound to the new fingerprint."
+        ? "A human decision remains in effect while its required output files are present. Delete the decision file to request review again."
         : step.executionSemantics === "external_effect"
           ? "If completion is uncertain, reconcile the transport with the operation idempotency key and supply a verified receipt before retrying."
-          : "If this step is invalidated, inspect the manifest/event reason, correct the declared input or output, and rerun; downstream consumers refresh lazily.",
+          : "Delete a required output and rerun to rebuild this step; downstream consumers reuse their existing files until you delete them too.",
     ],
     phaseId: context.getPhaseForStep(step.id)?.id,
     aiModelUsage: seed.aiModelUsage,

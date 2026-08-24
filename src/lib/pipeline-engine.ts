@@ -17,11 +17,9 @@
 
 import {
   formatDryRunSummary,
-  formatRefreshSummary,
   formatPhaseStart,
   formatSkippedStep,
 } from "./console-format.js";
-import { ArtifactValidationError } from "./errors/artifact-validation-error.js";
 import { PipelinePauseError } from "./errors/pipeline-pause-error.js";
 import type {
   PipelineExecutionGuide,
@@ -95,17 +93,20 @@ export const runPipelineEngine = async <
     }
   };
 
-  const hasAllArtifactsValid = async (stepId: string): Promise<boolean> => {
-    try {
-      await assertAllArtifactsValid(stepId);
-      return true;
-    } catch (error) {
-      if (error instanceof ArtifactValidationError) {
-        return false;
-      }
-
-      throw error;
-    }
+  const hasAllArtifactsPresent = async (stepId: string): Promise<boolean> => {
+    const artifacts = stepArtifactsById.get(stepId) ?? {};
+    const step = stepsById.get(stepId);
+    const activeIds = step?.getActiveArtifactIds
+      ? await step.getActiveArtifactIds(ctx)
+      : Object.keys(artifacts);
+    return Promise.all(
+      activeIds.map(async (artifactId) => {
+        const artifact = artifacts[artifactId];
+        if (!artifact) return false;
+        if (artifact.optional) return true;
+        return ctx.fileExists(ctx.getStepArtifactPath(stepId, artifactId));
+      }),
+    ).then((present) => present.every(Boolean));
   };
 
   const hasDeclaredArtifacts = (stepId: string): boolean => {
@@ -129,11 +130,6 @@ export const runPipelineEngine = async <
     return ctx;
   }
 
-  if ((runOptions.refresh?.stepIds.length ?? 0) > 0) {
-    console.log(`\n${formatRefreshSummary(runOptions.refresh?.stepIds ?? [])}`);
-  }
-
-  const refreshedStepIds = new Set(runOptions.refresh?.stepIds ?? []);
   await writeGuideArtifacts({ ctx, guide: options.guide, stepNumbers, stepGuidesById });
   let currentPhaseIds: string[] = [];
 
@@ -147,15 +143,6 @@ export const runPipelineEngine = async <
     }
 
     ctx.currentStepId = step.id;
-    const effectiveFingerprint = refreshedStepIds.has(step.id)
-      ? {
-          ...step.fingerprint,
-          operationInputs: async (fingerprintContext: typeof ctx) => [
-            ...await step.fingerprint.operationInputs(fingerprintContext),
-            { kind: "value" as const, id: "operator-refresh-nonce", value: runOptions.refresh?.nonce },
-          ],
-        }
-      : step.fingerprint;
     const phaseStack = options.guide
       ? options.guide.phases
           .filter((phase) => phase.stepIds.includes(step.id))
@@ -191,14 +178,7 @@ export const runPipelineEngine = async <
 
     if (
       hasDeclaredArtifacts(step.id) &&
-      (await ctx.isStepReusable?.({
-        stepId: step.id,
-        artifacts: step.getActiveArtifactIds
-          ? await step.getActiveArtifactIds(ctx)
-          : Object.keys(step.artifacts),
-        fingerprint: effectiveFingerprint,
-      })) === true &&
-      (await hasAllArtifactsValid(step.id))
+      (await hasAllArtifactsPresent(step.id))
     ) {
       console.log(`Skipping step ${step.id}: reusing valid artifacts`);
       emit?.({
@@ -338,13 +318,6 @@ export const runPipelineEngine = async <
         assertAllArtifactsValid,
         stepGuidesById,
         stepArtifactsById,
-      });
-      await ctx.recordStepCompletion?.({
-        stepId: step.id,
-        artifacts: step.getActiveArtifactIds
-          ? await step.getActiveArtifactIds(ctx)
-          : Object.keys(step.artifacts),
-        fingerprint: effectiveFingerprint,
       });
       if (usesOutputTransaction) await ctx.commitStepOutputTransaction?.(step.id);
     } catch (error) {
