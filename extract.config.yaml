@@ -30,6 +30,8 @@ extraGitignore:
 postProcess:
   - action: delete
     path: AGENTS.md
+  - action: delete
+    path: src/tests/pipeline-consumer-inventory.test.ts
 
 git:
   remote: git@github.com:syrokomskyi/pipeline-core.git
